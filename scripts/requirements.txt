@@ -1,0 +1,10 @@
+pandas
+pymupdf
+openai
+langchain-text-splitters
+spacy
+pinecone
+weaviate-client
+tqdm
+python-dateutil
+python-dotenv

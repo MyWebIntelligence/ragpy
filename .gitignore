@@ -1,0 +1,18 @@
+# Fichiers de configuration et secrets
+.env
+
+# Logs et fichiers temporaires
+logs/
+*.log
+
+# Fichiers Python compilés
+__pycache__/
+*.pyc
+
+# Fichiers générés par l'application
+uploads/
+pdf_processing.log
+ragpy_cli.sh
+
+# Fichiers de l'environnement local
+.Rhistory

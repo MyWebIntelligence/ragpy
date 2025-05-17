@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>RAGpy Data Processing</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}" />
+  <link rel="icon" href="{{ url_for('static', path='favicon.ico') }}">
+  <style>
+    #settingsModal {
+      display: none;
+      position: fixed;
+      z-index: 1002;
+      left: 0;
+      top: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: auto;
+      background: rgba(0,0,0,0.3);
+    }
+    #settingsModal .modal-content {
+      background: #fff;
+      margin: 5% auto;
+      padding: 32px 24px 24px 24px;
+      border-radius: 12px;
+      width: 95%;
+      max-width: 540px;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.18);
+      border: 1.5px solid #e0e0e0;
+      position: relative;
+    }
+    #settingsModal .close {
+      position: absolute;
+      right: 18px;
+      top: 12px;
+      font-size: 1.5rem;
+      color: #888;
+      cursor: pointer;
+    }
+    #settingsModal label {
+      display: block;
+      margin-top: 10px;
+      font-weight: 500;
+    }
+    #settingsModal input[type="text"],
+    #settingsModal input[type="password"] {
+      width: 100%;
+      padding: 7px 10px;
+      margin-top: 4px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 1rem;
+    }
+    #settingsModal button.save-btn {
+      margin-top: 24px;
+      background: #1976d2;
+      color: #fff;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 4px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      width: 100%;
+    }
+    #settingsModal .save-status {
+      margin-top: 16px;
+      font-size: 1rem;
+      color: #1976d2;
+      text-align: center;
+    }
+    #settingsModal h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #1976d2;
+    }
+    #settingsModal form > div {
+      background: #f7fafd;
+      border-radius: 8px;
+      padding: 18px 16px;
+      margin-bottom: 18px;
+      border: 1px solid #e3e8f0;
+    }
+  </style>
+</head>
+<body>
+  <button id="settingsBtn" title="Settings" style="font-size: 2.2rem; color: #1976d2;" onclick="document.getElementById('settingsModal').style.display='block';">&#9881;</button>
+  <div id="settingsModal">
+    <div class="modal-content" style="max-width: 540px; border-radius: 12px; box-shadow: 0 4px 32px rgba(0,0,0,0.18); border: 1.5px solid #e0e0e0;">
+      <span class="close" id="closeSettingsModal" onclick="document.getElementById('settingsModal').style.display='none';">&times;</span>
+      <h2 style="text-align:center; margin-bottom: 18px;">Credentials Settings</h2>
+      <form id="settingsForm">
+        <div style="background: #f7fafd; border-radius: 8px; padding: 18px 16px; margin-bottom: 18px; border: 1px solid #e3e8f0;">
+          <h3 style="margin-top:0; margin-bottom: 10px; color: #1976d2;">OpenAI</h3>
+          <label for="openaiKey">API Key</label>
+          <input type="text" id="openaiKey" name="OPENAI_API_KEY" autocomplete="off" placeholder="sk-..." />
+        </div>
+        <div style="background: #f7fafd; border-radius: 8px; padding: 18px 16px; margin-bottom: 18px; border: 1px solid #e3e8f0;">
+          <h3 style="margin-top:0; margin-bottom: 10px; color: #1976d2;">Pinecone</h3>
+          <label for="pineconeKey">API Key</label>
+          <input type="text" id="pineconeKey" name="PINECONE_API_KEY" autocomplete="off" placeholder="Pinecone API Key" />
+          <label for="pineconeEnv">Environment</label>
+          <input type="text" id="pineconeEnv" name="PINECONE_ENV" autocomplete="off" placeholder="Pinecone Environment" />
+        </div>
+        <div style="background: #f7fafd; border-radius: 8px; padding: 18px 16px; margin-bottom: 18px; border: 1px solid #e3e8f0;">
+          <h3 style="margin-top:0; margin-bottom: 10px; color: #1976d2;">Weaviate</h3>
+          <label for="weaviateKey">API Key</label>
+          <input type="text" id="weaviateKey" name="WEAVIATE_API_KEY" autocomplete="off" placeholder="Weaviate API Key" />
+          <label for="weaviateUrl">URL</label>
+          <input type="text" id="weaviateUrl" name="WEAVIATE_URL" autocomplete="off" placeholder="https://..." />
+        </div>
+        <div style="background: #f7fafd; border-radius: 8px; padding: 18px 16px; margin-bottom: 18px; border: 1px solid #e3e8f0;">
+          <h3 style="margin-top:0; margin-bottom: 10px; color: #1976d2;">Qdrant</h3>
+          <label for="qdrantKey">API Key</label>
+          <input type="text" id="qdrantKey" name="QDRANT_API_KEY" autocomplete="off" placeholder="Qdrant API Key" />
+          <label for="qdrantUrl">URL</label>
+          <input type="text" id="qdrantUrl" name="QDRANT_URL" autocomplete="off" placeholder="http://..." />
+        </div>
+        <button type="submit" class="save-btn" style="width:100%; font-size:1.15rem;">Save</button>
+        <div class="save-status" id="settingsSaveStatus"></div>
+      </form>
+    </div>
+  </div>
+  <div class="container">
+    <h1>RAGpy Data Processing Pipeline</h1>
+
+    <div id="global-controls" style="text-align: center; margin-bottom: 20px;">
+      <button id="stopAllScriptsBtn" class="danger-btn">Stop All Running Scripts</button>
+      <div id="stopScriptsResult" class="result" style="display: none; margin-top:10px;"></div>
+    </div>
+
+    <!-- Step 1: Upload ZIP -->
+    <section id="upload-section">
+      <h2>1. Upload ZIP Archive</h2>
+      <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".zip" required />
+        <button type="submit">Upload</button>
+      </form>
+      <div id="uploadResult" class="result"></div>
+    </section>
+
+    <!-- Step 2: Process DataFrame -->
+    <section id="dataframe-section" style="display:none;">
+      <h2>2. Extract Text & Metadata</h2>
+      <button id="processDataframeBtn">Run Data Processing</button>
+      <div id="dataframeResult" class="result"></div>
+    </section>
+
+    <!-- Step 3.1: Initial Text Chunking -->
+    <section id="initial-chunk-section" style="display:none;">
+      <h2>3.1 Initial Text Chunking</h2>
+      <p style="color: black; font-size: 0.9em;">Warning: This process can take a long time depending on your file. Do not close your browser. We recommend processing a maximum of 10 articles or one book at a time.</p>
+      <button id="runInitialChunkBtn">Run Initial Chunking</button>
+      <div id="initialChunkResult" class="result"></div>
+    </section>
+
+    <!-- Step 3.2: Dense Embedding Generation -->
+    <section id="dense-embedding-section" style="display:none;">
+      <h2>3.2 Dense Embedding Generation</h2>
+      <button id="runDenseEmbeddingBtn">Generate Dense Embeddings</button>
+      <div id="denseEmbeddingResult" class="result"></div>
+    </section>
+
+    <!-- Step 3.3: Sparse Embedding Generation -->
+    <section id="sparse-embedding-section" style="display:none;">
+      <h2>3.3 Sparse Embedding Generation</h2>
+      <button id="runSparseEmbeddingBtn">Generate Sparse Embeddings</button>
+      <div id="sparseEmbeddingResult" class="result"></div>
+    </section>
+
+    <!-- Step 4: Upload to Vector DB -->
+    <section id="db-section" style="display:none;">
+      <h2>4. Upload to Vector Database</h2>
+      <label for="dbChoice">Choose Database:</label>
+      <select id="dbChoice">
+        <option value="pinecone">Pinecone</option>
+        <option value="weaviate">Weaviate</option>
+        <option value="qdrant">Qdrant</option>
+      </select>
+
+      <div id="pineconeParams" class="db-params" style="margin-top:10px;">
+        <label for="pineconeIndexName">Pinecone Index Name:</label>
+        <input type="text" id="pineconeIndexName" name="pinecone_index_name" value="articles" placeholder="e.g., articles">
+      </div>
+      <div id="weaviateParams" class="db-params" style="display:none; margin-top:10px;">
+        <label for="weaviateClassName">Weaviate Class Name:</label>
+        <input type="text" id="weaviateClassName" name="weaviate_class_name" value="Article" placeholder="e.g., Article">
+        <br>
+        <label for="weaviateTenantName" style="margin-top:5px; display:inline-block;">Weaviate Tenant Name:</label>
+        <input type="text" id="weaviateTenantName" name="weaviate_tenant_name" value="alakel" placeholder="e.g., alakel">
+      </div>
+      <div id="qdrantParams" class="db-params" style="display:none; margin-top:10px;">
+        <label for="qdrantCollectionName">Qdrant Collection Name:</label>
+        <input type="text" id="qdrantCollectionName" name="qdrant_collection_name" placeholder="e.g., my_documents" required>
+      </div>
+
+      <button id="uploadDbBtn" style="margin-top:15px;">Start Upload</button>
+      <div id="dbResult" class="result"></div>
+    </section>
+  </div>
+
+  <script>
+    // Settings modal logic
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsModal = document.getElementById('settingsModal');
+    const closeSettingsModal = document.getElementById('closeSettingsModal');
+    const settingsForm = document.getElementById('settingsForm');
+    const settingsSaveStatus = document.getElementById('settingsSaveStatus');
+
+    async function loadCredentials() {
+      settingsSaveStatus.textContent = 'Loading credentials...';
+      try {
+        console.log("Fetching credentials...");
+        const res = await fetch('/get_credentials');
+        console.log("Response status:", res.status);
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error("Failed to load credentials:", res.status, errorText);
+          settingsSaveStatus.textContent = `Error ${res.status}: ${errorText}`;
+          return;
+        }
+        
+        const json = await res.json();
+        console.log("Credentials loaded:", Object.keys(json));
+        
+        for (const key in json) {
+          const input = document.querySelector(`#settingsForm [name="${key}"]`);
+          if (input) {
+            console.log(`Setting ${key} value`);
+            // Truncate API keys for security - show first 20 chars + #####
+            const value = json[key] || '';
+            if (value.length > 20) {
+              input.value = value.substring(0, 20) + '##########';
+            } else {
+              input.value = value;
+            }
+            // Store the full value as a data attribute for submission
+            input.dataset.fullValue = value;
+          } else {
+            console.warn(`Input field not found for ${key}`);
+          }
+        }
+        
+        // Only clear the status message if we successfully loaded credentials
+        if (Object.keys(json).length > 0) {
+          settingsSaveStatus.textContent = '';
+        } else {
+          settingsSaveStatus.textContent = 'No credentials found in .env file';
+        }
+      } catch (err) {
+        console.error("Error loading credentials:", err);
+        settingsSaveStatus.textContent = "Error: " + err.message;
+      }
+    }
+
+    settingsBtn.onclick = () => {
+      settingsModal.style.display = 'block';
+      settingsSaveStatus.textContent = '';
+      loadCredentials();
+    };
+    closeSettingsModal.onclick = () => {
+      settingsModal.style.display = 'none';
+    };
+    window.onclick = (event) => {
+      if (event.target === settingsModal) {
+        settingsModal.style.display = 'none';
+      }
+    };
+
+    settingsForm.onsubmit = async (e) => {
+      e.preventDefault();
+      settingsSaveStatus.textContent = 'Saving...';
+      const data = {};
+      
+      // Extract form values.
+      // If the input value is the placeholder '##########' AND there's a fullValue that matches the prefix, use fullValue.
+      // Otherwise, use the current input value (which could be empty if cleared by user, or a new value if edited).
+      Array.from(settingsForm.elements).forEach(el => {
+        if (el.name) { // Process all named elements
+          if (el.dataset && el.dataset.fullValue && 
+              el.value.endsWith('##########') && 
+              el.value.startsWith(el.dataset.fullValue.substring(0, 20))) {
+            // Field was likely not touched by user and displays placeholder, use stored full value
+            data[el.name] = el.dataset.fullValue;
+          } else {
+            // Field was edited, or never had a fullValue, or placeholder logic doesn't match. Use current field value.
+            data[el.name] = el.value; 
+          }
+        }
+      });
+      
+      try {
+        const res = await fetch('/save_credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const json = await res.json();
+        if (res.ok && json.status === "success") {
+          settingsSaveStatus.textContent = "Credentials saved!";
+        } else {
+          settingsSaveStatus.textContent = "Error: " + (json.error || "Could not save.");
+        }
+      } catch (err) {
+        settingsSaveStatus.textContent = "Request failed: " + err;
+      }
+    };
+    let currentPath = '';
+
+    // Step 1: Upload ZIP
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const uploadResult = document.getElementById('uploadResult');
+      uploadResult.textContent = 'Uploading...';
+      const formData = new FormData(e.target);
+
+      try {
+        const res = await fetch('/upload_zip', {
+          method: 'POST',
+          body: formData
+        });
+        const json = await res.json();
+        if (res.ok) {
+          currentPath = json.path;
+          uploadResult.innerHTML = `<p>Uploaded to: <strong>${currentPath}</strong></p>`;
+          document.getElementById('dataframe-section').style.display = 'block';
+        } else {
+          uploadResult.textContent = 'Error: ' + (json.error || res.statusText);
+        }
+      } catch (err) {
+        uploadResult.textContent = 'Upload failed: ' + err;
+      }
+    });
+
+    // Step 2: Process DataFrame
+    document.getElementById('processDataframeBtn').addEventListener('click', async () => {
+      const resultDiv = document.getElementById('dataframeResult');
+      resultDiv.textContent = 'Processing...';
+      const form = new URLSearchParams();
+      form.append('path', currentPath);
+
+      try {
+        const res = await fetch('/process_dataframe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: form.toString()
+        });
+        const json = await res.json();
+        if (res.ok) {
+          const fileName = json.csv.split('/').pop();
+          const downloadLink = `<a href="/download_file?session_path=${encodeURIComponent(currentPath)}&filename=${encodeURIComponent(fileName)}" download="${fileName}">${fileName}</a>`;
+          resultDiv.innerHTML = `<p>Fichier généré : ${downloadLink}</p>`;
+          document.getElementById('initial-chunk-section').style.display = 'block';
+        } else {
+          resultDiv.textContent = 'Error: ' + (json.error || res.statusText);
+        }
+      } catch (err) {
+        resultDiv.textContent = 'Processing failed: ' + err;
+      }
+    });
+
+    // Step 3.1: Initial Text Chunking
+    document.getElementById('runInitialChunkBtn').addEventListener('click', async () => {
+      const resultDiv = document.getElementById('initialChunkResult');
+      resultDiv.textContent = 'Running initial chunking...';
+      const form = new URLSearchParams();
+      form.append('path', currentPath);
+
+      try {
+        const res = await fetch('/initial_text_chunking', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: form.toString()
+        });
+        const json = await res.json();
+        if (res.ok && json.status === "success") {
+          const fileName = json.file.split('/').pop();
+          const downloadLink = `<a href="/download_file?session_path=${encodeURIComponent(currentPath)}&filename=${encodeURIComponent(fileName)}" download="${fileName}">${fileName}</a>`;
+          resultDiv.innerHTML = `<p>Fichier généré : ${downloadLink}</p><p>Nombre de chunks : <strong>${json.count}</strong></p>`;
+          document.getElementById('dense-embedding-section').style.display = 'block';
+        } else {
+          resultDiv.innerHTML = `<p class="error-text">Error: ${json.error || "Unknown error"}. Details: ${json.details || json.file || 'N/A'}</p>`;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<p class="error-text">Request failed: ${err}</p>`;
+      }
+    });
+
+    // Step 3.2: Dense Embedding Generation
+    document.getElementById('runDenseEmbeddingBtn').addEventListener('click', async () => {
+      const resultDiv = document.getElementById('denseEmbeddingResult');
+      resultDiv.textContent = 'Generating dense embeddings...';
+      const form = new URLSearchParams();
+      form.append('path', currentPath);
+
+      try {
+        const res = await fetch('/dense_embedding_generation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: form.toString()
+        });
+        const json = await res.json();
+        if (res.ok && json.status === "success") {
+          const fileName = json.file.split('/').pop();
+          const downloadLink = `<a href="/download_file?session_path=${encodeURIComponent(currentPath)}&filename=${encodeURIComponent(fileName)}" download="${fileName}">${fileName}</a>`;
+          resultDiv.innerHTML = `<p>Fichier généré : ${downloadLink}</p><p>Nombre de chunks : <strong>${json.count}</strong></p>`;
+          document.getElementById('sparse-embedding-section').style.display = 'block';
+        } else {
+          resultDiv.innerHTML = `<p class="error-text">Error: ${json.error || "Unknown error"}. Details: ${json.details || json.file || 'N/A'}</p>`;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<p class="error-text">Request failed: ${err}</p>`;
+      }
+    });
+
+    // Step 3.3: Sparse Embedding Generation
+    document.getElementById('runSparseEmbeddingBtn').addEventListener('click', async () => {
+      const resultDiv = document.getElementById('sparseEmbeddingResult');
+      resultDiv.textContent = 'Generating sparse embeddings...';
+      const form = new URLSearchParams();
+      form.append('path', currentPath);
+
+      try {
+        const res = await fetch('/sparse_embedding_generation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: form.toString()
+        });
+        const json = await res.json();
+        if (res.ok && json.status === "success") {
+          const fileName = json.file.split('/').pop();
+          const downloadLink = `<a href="/download_file?session_path=${encodeURIComponent(currentPath)}&filename=${encodeURIComponent(fileName)}" download="${fileName}">${fileName}</a>`;
+          resultDiv.innerHTML = `<p>Fichier généré : ${downloadLink}</p><p>Nombre de chunks : <strong>${json.count}</strong></p>`;
+          document.getElementById('db-section').style.display = 'block';
+        } else {
+          resultDiv.innerHTML = `<p class="error-text">Error: ${json.error || "Unknown error"}. Details: ${json.details || json.file || 'N/A'}</p>`;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = `<p class="error-text">Request failed: ${err}</p>`;
+      }
+    });
+
+    // Step 4: Upload to DB
+    const dbChoiceSelect = document.getElementById('dbChoice');
+    const pineconeParamsDiv = document.getElementById('pineconeParams');
+    const weaviateParamsDiv = document.getElementById('weaviateParams');
+    const qdrantParamsDiv = document.getElementById('qdrantParams');
+
+    dbChoiceSelect.addEventListener('change', function() {
+      pineconeParamsDiv.style.display = 'none';
+      weaviateParamsDiv.style.display = 'none';
+      qdrantParamsDiv.style.display = 'none';
+
+      if (this.value === 'pinecone') {
+        pineconeParamsDiv.style.display = 'block';
+      } else if (this.value === 'weaviate') {
+        weaviateParamsDiv.style.display = 'block';
+      } else if (this.value === 'qdrant') {
+        qdrantParamsDiv.style.display = 'block';
+      }
+    });
+
+    // Trigger change event on load to show default params
+    dbChoiceSelect.dispatchEvent(new Event('change'));
+
+    document.getElementById('uploadDbBtn').addEventListener('click', async () => {
+      const resultDiv = document.getElementById('dbResult');
+      resultDiv.textContent = 'Uploading to DB...';
+      const form = new URLSearchParams();
+      form.append('path', currentPath);
+      const dbChoice = dbChoiceSelect.value;
+      form.append('db_choice', dbChoice);
+
+      if (dbChoice === 'pinecone') {
+        form.append('pinecone_index_name', document.getElementById('pineconeIndexName').value);
+      } else if (dbChoice === 'weaviate') {
+        form.append('weaviate_class_name', document.getElementById('weaviateClassName').value);
+        form.append('weaviate_tenant_name', document.getElementById('weaviateTenantName').value);
+      } else if (dbChoice === 'qdrant') {
+        const qdrantCollectionName = document.getElementById('qdrantCollectionName').value;
+        if (!qdrantCollectionName) {
+          resultDiv.textContent = 'Error: Qdrant Collection Name is required.';
+          return;
+        }
+        form.append('qdrant_collection_name', qdrantCollectionName);
+      }
+
+      try {
+        const res = await fetch('/upload_db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: form.toString()
+        });
+
+        // Try to parse JSON regardless, but handle errors carefully
+        let json = null;
+        try {
+          json = await res.json();
+        } catch (e) {
+          // Failed to parse JSON, maybe it's a non-JSON error response
+          console.error("Failed to parse JSON response:", e);
+          // If res.ok is also false, then it's likely a server error with non-JSON body
+          if (!res.ok) {
+            resultDiv.textContent = `Error: ${res.status} ${res.statusText}. Response body was not valid JSON.`;
+            return;
+          }
+          // If res.ok is true but JSON parsing failed, that's unexpected.
+          resultDiv.textContent = 'Error: Received OK status but failed to parse JSON response.';
+          return;
+        }
+
+        // Now 'json' is either the parsed object or null if parsing failed but res.ok was true (unlikely path)
+        if (res.ok) {
+          if (json && typeof json.status === 'string' && json.status.trim() !== '') { // More robust check for status
+            let messageText = json.message || 'Operation completed.';
+            let countText = (json.inserted_count !== undefined) ? `Items processed/inserted: ${json.inserted_count}` : '';
+            resultDiv.innerHTML = `<p>Status: <strong>${String(json.status)}</strong>. Message: ${String(messageText)}</p>`;
+            if (countText) {
+                 resultDiv.innerHTML += `<p>${String(countText)}</p>`;
+            }
+          } else {
+            // This case means res.ok was true, but json is null or lacks a status.
+            // This indicates an issue with the server sending a 2xx response with unexpected/empty JSON.
+            resultDiv.textContent = 'Error: Received success status but response format is unexpected.';
+            console.error("Unexpected success response format:", json);
+          }
+        } else { // res.ok is false (e.g., 4xx, 5xx errors)
+          // 'json' here would be the parsed error response from Flask (e.g., {"error": ..., "status": ...})
+          let errorMsg = 'Error: ';
+          if (json && json.error) {
+            errorMsg += json.error;
+          } else if (json && json.message) { // Some of my Flask error responses might use 'message'
+            errorMsg += json.message;
+          } else {
+            errorMsg += `${res.status} ${res.statusText}`;
+          }
+          resultDiv.textContent = errorMsg;
+          if (json && json.details) {
+            resultDiv.innerHTML += `<br><small>Details: ${String(json.details)}</small>`;
+          }
+           if (json && json.status) { // The nested status from Pinecone error
+            resultDiv.innerHTML += `<br><small>Original Status: ${String(json.status)}</small>`;
+          }
+        }
+      } catch (err) { // Catch network errors or other unhandled issues from fetch itself
+        resultDiv.textContent = 'DB upload request failed: ' + err.message;
+        console.error("Fetch request error:", err);
+      }
+    });
+
+    // Global Stop Button
+    document.getElementById('stopAllScriptsBtn').addEventListener('click', async () => {
+      const stopResultDiv = document.getElementById('stopScriptsResult');
+      stopResultDiv.textContent = 'Attempting to stop scripts...';
+      stopResultDiv.style.display = 'block';
+      try {
+        const res = await fetch('/stop_all_scripts', { method: 'POST' });
+        const json = await res.json();
+        if (res.ok) {
+          stopResultDiv.textContent = `Stop command sent. Status: ${json.status}. Details: ${json.details || 'N/A'}`;
+        } else {
+          stopResultDiv.textContent = `Error stopping scripts: ${json.error || res.statusText}`;
+        }
+      } catch (err) {
+        stopResultDiv.textContent = 'Failed to send stop command: ' + err;
+      }
+    });
+  </script>
+</body>
+</html>
